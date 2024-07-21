@@ -34,7 +34,6 @@ export default function LoginForm() {
         description: res.payload.message,
       });
     } catch (error: any) {
-      console.log("🚀 ~ onSubmit ~ error:", error);
       handleErrorApi({
         error: error,
         setError: form.setError,
