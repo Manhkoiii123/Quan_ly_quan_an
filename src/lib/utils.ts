@@ -38,3 +38,11 @@ export function cn(...inputs: ClassValue[]) {
 export const normalizePath = (path: string) => {
   return path.startsWith("/") ? path.slice(1) : path;
 };
+
+const isBrower = typeof window !== "undefined";
+export const getAccessTokenFromLocalstorage = () => {
+  return isBrower ? localStorage.getItem("accessToken") : null;
+};
+export const getRefreshTokenFromLocalstorage = () => {
+  return isBrower ? localStorage.getItem("refreshToken") : null;
+};
