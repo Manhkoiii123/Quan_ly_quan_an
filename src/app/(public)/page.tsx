@@ -3,8 +3,8 @@ import Image from "next/image";
 export default function Home() {
   return (
     <div className="w-full space-y-4">
-      <div className="relative">
-        <span className="absolute top-0 left-0 w-full h-full bg-black opacity-50 z-10"></span>
+      <div className="relative z-10">
+        <span className="absolute top-0 left-0 w-full h-full bg-black opacity-50 "></span>
         <Image
           src="/banner.png"
           width={400}
