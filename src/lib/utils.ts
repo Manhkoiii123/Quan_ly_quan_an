@@ -26,7 +26,7 @@ export const handleErrorApi = ({
   } else {
     toast({
       title: "Lỗi",
-      description: error.payload.message ?? "Có lỗi đang xảy ra",
+      description: error?.payload?.message ?? "Có lỗi đang xảy ra",
       variant: "destructive",
       duration: duration ?? 5000,
     });
