@@ -1,8 +1,6 @@
 import authApiRequest from "@/apiRequest/auth";
-import { LoginBodyType } from "@/schemaValidations/auth.schema";
 import { cookies } from "next/headers";
 export async function POST(req: Request) {
-  const body = (await req.json()) as LoginBodyType;
   const cookieStore = cookies();
   const accessToken = cookieStore.get("accessToken")?.value;
   const refreshToken = cookieStore.get("refreshToken")?.value;
@@ -22,6 +20,7 @@ export async function POST(req: Request) {
     });
     return Response.json(res.payload, { status: 200 });
   } catch (error) {
+    console.log("🚀 ~ POST ~ error:", error);
     return Response.json({ message: "Có lỗi xảy ra" }, { status: 200 });
   }
 }
