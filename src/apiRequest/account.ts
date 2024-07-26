@@ -6,6 +6,12 @@ import {
 } from "@/schemaValidations/account.schema";
 
 const accountApiRequest = {
+  sMe: (accessToken: string) =>
+    http.get<AccountResType>("/accounts/me", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }),
   me: () => http.get<AccountResType>("/accounts/me"),
   updateMe: (body: UpdateMeBodyType) =>
     http.put<AccountResType>("/accounts/me", body),
