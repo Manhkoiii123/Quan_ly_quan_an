@@ -143,6 +143,7 @@ const request = async <Response>(
           }
         }
       } else {
+        // còn accToken và ref token còn hạn => call api ở phía next server(route handle || server component) đến server backend
         const accessToken = (options?.headers as any)?.Authorization.split(
           "Bearer "
         )[1];

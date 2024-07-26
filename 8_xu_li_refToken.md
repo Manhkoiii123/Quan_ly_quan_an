@@ -191,3 +191,103 @@ const LogoutPage = () => {
 
 export default LogoutPage;
 ```
+
+### Còn trường hợp cả 2 cái đều còn vì 1 lí do nào đó trả về 401 (author)=> logout
+
+khi call api lên server backend => trả về 401 => đọc http.ts ( đã xử lí )
+
+```typescript
+} else {
+        const accessToken = (options?.headers as any)?.Authorization.split(
+          "Bearer "
+        )[1];
+        redirect(`/logout?accessToken=${accessToken}`);
+      }
+```
+
+đã xử lí bên http nhưng đá về acctoken => ko logout được
+=> check thêm ở bên cái logout page cả case accToken
+
+```typescript
+"use client";
+import {
+  getAccessTokenFromLocalstorage,
+  getRefreshTokenFromLocalstorage,
+} from "@/lib/utils";
+import { useLogoutMutation } from "@/queries/useAuth";
+import { useRouter, useSearchParams } from "next/navigation";
+import React, { useEffect, useRef } from "react";
+
+const LogoutPage = () => {
+  const router = useRouter();
+  const { mutateAsync } = useLogoutMutation();
+  const ref = useRef<any>(null);
+  const searchParam = useSearchParams();
+
+  const refreshTokenFromUrl = searchParam.get("refreshToken");
+  const accessTokenFromUrl = searchParam.get("accessToken");
+
+  useEffect(() => {
+    if (
+      ref.current ||
+      (refreshTokenFromUrl &&
+        refreshTokenFromUrl !== getRefreshTokenFromLocalstorage()) ||
+      (accessTokenFromUrl &&
+        accessTokenFromUrl !== getAccessTokenFromLocalstorage())
+    ) {
+      return;
+    }
+
+    ref.current = mutateAsync;
+    mutateAsync().then((res) => {
+      setTimeout(() => {
+        ref.current = null;
+      }, 1000);
+
+      router.push("/login");
+    });
+  }, [mutateAsync, refreshTokenFromUrl, router, accessTokenFromUrl]);
+  return <div></div>;
+};
+
+export default LogoutPage;
+```
+
+test
+khai báo 1 api call phía server
+
+```typescript
+ sMe: (accessToken: string) =>
+    http.get<AccountResType>("/accounts/me", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }),
+```
+
+bên 1 cái component server ào đo
+
+```typescript
+import accountApiRequest from "@/apiRequest/account";
+import { cookies } from "next/headers";
+import React from "react";
+
+const page = async () => {
+  const cookieStore = cookies();
+  const accessToken = cookieStore.get("accessToken")?.value!;
+  const res = await accountApiRequest.sMe(accessToken);
+
+  return <div>Dashboard page {res.payload.data.name}</div>;
+};
+
+export default page;
+```
+
+có 1 cái bug là khi dùng redirect với server component thì mặc định sẽ throw ra 1 cái lỗi
+nếu mà dùng try catch để cl cái error khi call cái sme kia thì sẽ bị báo lỗi
+=> xử lí như sau
+
+![alt text](image-1.png)
+
+hoặc là ko dùng try catch nữa là được
+=> done
