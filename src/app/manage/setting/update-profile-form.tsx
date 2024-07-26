@@ -10,10 +10,19 @@ import {
   UpdateMeBodyType,
 } from "@/schemaValidations/account.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useAccontProfile, useUpdateMeMutation } from "@/queries/useAccount";
+import { toast } from "@/components/ui/use-toast";
+import { handleErrorApi } from "@/lib/utils";
 import { Form, FormField, FormItem, FormMessage } from "@/components/ui/form";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
+import { useUploadMediaMutation } from "@/queries/useMedia";
 export default function UpdateProfileForm() {
+  const [file, setFile] = useState<File | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const updateMeMutation = useUpdateMeMutation();
+  const uploadImageMutation = useUploadMediaMutation();
+  const { data, refetch } = useAccontProfile();
   const form = useForm<UpdateMeBodyType>({
     resolver: zodResolver(UpdateMeBody),
     defaultValues: {
@@ -21,10 +30,61 @@ export default function UpdateProfileForm() {
       avatar: "",
     },
   });
+  const avatar = form.watch("avatar");
+  const previewAvatarFromFile = useMemo(() => {
+    if (file) {
+      return URL.createObjectURL(file);
+    }
+    return avatar;
+  }, [file, avatar]);
+  const name = form.watch("name");
+  useEffect(() => {
+    if (data) {
+      const { name, avatar } = data.payload.data;
+      form.reset({
+        name,
+        avatar: avatar ?? "",
+      });
+    }
+  }, [data, form]);
+  async function onSubmit(values: UpdateMeBodyType) {
+    if (updateMeMutation.isPending) return;
+    try {
+      let body = values;
+      if (file) {
+        const formData = new FormData();
+        formData.append("file", file as Blob);
+        const uploadImageResult = await uploadImageMutation.mutateAsync(
+          formData
+        );
+        const imageUrl = uploadImageResult.payload.data;
+        body = {
+          ...values,
+          avatar: imageUrl,
+        };
+      }
+      const result = await updateMeMutation.mutateAsync(body);
+      toast({
+        description: result.payload.message,
+      });
+      refetch();
+    } catch (error: any) {
+      handleErrorApi({
+        error,
+        setError: form.setError,
+      });
+    }
+  }
 
+  const reset = () => {
+    form.reset();
+    setFile(null);
+  };
   return (
     <Form {...form}>
       <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        onReset={reset}
         noValidate
         className="grid auto-rows-max items-start gap-4 md:gap-8"
       >
@@ -41,15 +101,30 @@ export default function UpdateProfileForm() {
                   <FormItem>
                     <div className="flex gap-2 items-start justify-start">
                       <Avatar className="aspect-square w-[100px] h-[100px] rounded-md object-cover">
-                        <AvatarImage src={"Duoc"} />
+                        <AvatarImage src={previewAvatarFromFile} />
                         <AvatarFallback className="rounded-none">
-                          {"manh"}
+                          {name}
                         </AvatarFallback>
                       </Avatar>
-                      <input type="file" accept="image/*" className="hidden" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={avatarInputRef}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setFile(file);
+                            field.onChange(
+                              "http://localhost:3000/" + file.name //do schema yêu cầu nó là url
+                            );
+                          }
+                        }}
+                        className="hidden"
+                      />
                       <button
                         className="flex aspect-square w-[100px] items-center justify-center rounded-md border border-dashed"
                         type="button"
+                        onClick={() => avatarInputRef.current?.click()}
                       >
                         <Upload className="h-4 w-4 text-muted-foreground" />
                         <span className="sr-only">Upload</span>
