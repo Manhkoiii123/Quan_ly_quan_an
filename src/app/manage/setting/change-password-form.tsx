@@ -11,6 +11,9 @@ import {
 } from "@/schemaValidations/account.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormField, FormItem, FormMessage } from "@/components/ui/form";
+import { useChangePassMutation } from "@/queries/useAccount";
+import { handleErrorApi } from "@/lib/utils";
+import { toast } from "@/components/ui/use-toast";
 
 export default function ChangePasswordForm() {
   const form = useForm<ChangePasswordBodyType>({
@@ -21,17 +24,36 @@ export default function ChangePasswordForm() {
       confirmPassword: "",
     },
   });
-
+  const changePasswordMutation = useChangePassMutation();
+  const onSubmit = async (data: ChangePasswordBodyType) => {
+    if (changePasswordMutation.isPending) return;
+    try {
+      const res = await changePasswordMutation.mutateAsync(data);
+      toast({
+        description: res.payload.message,
+      });
+      form.reset();
+    } catch (error) {
+      handleErrorApi({
+        error: error,
+        setError: form.setError,
+      });
+    }
+  };
+  const onReset = () => {
+    form.reset();
+  };
   return (
     <Form {...form}>
       <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        onReset={onReset}
         noValidate
         className="grid auto-rows-max items-start gap-4 md:gap-8"
       >
         <Card className="overflow-hidden" x-chunk="dashboard-07-chunk-4">
           <CardHeader>
             <CardTitle>Đổi mật khẩu</CardTitle>
-            {/* <CardDescription>Lipsum dolor sit amet, consectetur adipiscing elit</CardDescription> */}
           </CardHeader>
           <CardContent>
             <div className="grid gap-6">
@@ -92,10 +114,12 @@ export default function ChangePasswordForm() {
                 )}
               />
               <div className=" items-center gap-2 md:ml-auto flex">
-                <Button variant="outline" size="sm">
+                <Button type="reset" variant="outline" size="sm">
                   Hủy
                 </Button>
-                <Button size="sm">Lưu thông tin</Button>
+                <Button type="submit" size="sm">
+                  Lưu thông tin
+                </Button>
               </div>
             </div>
           </CardContent>
