@@ -1,4 +1,5 @@
 "use client";
+import { useAppContext } from "@/components/app-provider";
 import {
   getAccessTokenFromLocalstorage,
   getRefreshTokenFromLocalstorage,
@@ -12,6 +13,7 @@ const LogoutPage = () => {
   const { mutateAsync } = useLogoutMutation();
   const ref = useRef<any>(null);
   const searchParam = useSearchParams();
+  const { setIsAuth } = useAppContext();
 
   const refreshTokenFromUrl = searchParam.get("refreshToken");
   const accessTokenFromUrl = searchParam.get("accessToken");
@@ -29,7 +31,7 @@ const LogoutPage = () => {
         setTimeout(() => {
           ref.current = null;
         }, 1000);
-
+        setIsAuth(false);
         router.push("/login");
       });
     } else {
