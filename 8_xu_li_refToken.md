@@ -699,3 +699,17 @@ export default RefreshTokenPage;
 vào lại web => chyaj middleware => check thấy đang ở route private và cái !acc và re đúng 2 điều kiện này chạy đế cái /refresh-token
 sau đó vào cái page /refresh-token để call lại api refresh để lấy lại acctoken
 sau đó đá đếm cái redirect luôn nếu láy lại thành công = router.push(redirectPathNameFromUrl || "/");
+
+# Xử lý trường hợp đang dùng thì refresh token hết hạn
+
+thấy bên cái reftoken chạy 1s 1 lần => chạy vòa cái checkEndRef => chạy vào case decodeRef.exp <=now => cho logout luôn(case hết hạn cần xử lí) => xóa LS còn cookie tự xóa
+
+bên hàm checkEndRef
+
+```ts
+if (decodedRefreshToken.exp <= now) {
+  removeLocalStorage();
+  params?.onError && params?.onError();
+  return;
+}
+```
