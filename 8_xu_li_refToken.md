@@ -389,3 +389,136 @@ export async function POST(req: Request) {
   }
 }
 ```
+
+khi trả về 401 rồi thì call api nó sẽ bị lỗi do cái http nó đã bắt cái lỗi 401 rồi => call logout
+
+# case đang dùng thì refresh token hết hạn
+
+không cho trường hợp này xảy ra
+dùng 1 interval để ckeck token liên tục để refresh token trước khi nó hết hạn
+
+1. tạo 1 component refresh token
+   src/component/refresh-token.tsx
+
+```typescript
+"use client";
+import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+
+export default function RefreshToken() {
+  const pathName = usePathname();
+  useEffect(() => {}, [pathName]);
+  return null;
+}
+```
+
+sang app-provider thêm nó vào để nó chạy ở toàn bộ web
+
+```typescript
+const AppProvider = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+      <RefreshToken />
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  );
+};
+```
+
+viết file src/component/refresh-token.tsx
+
+```typescript
+"use client";
+import {
+  getAccessTokenFromLocalstorage,
+  getRefreshTokenFromLocalstorage,
+  setAccessTokenToLocalstorage,
+  setRefreshTokenToLocalstorage,
+} from "@/lib/utils";
+import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import jwt from "jsonwebtoken";
+import authApiRequest from "@/apiRequest/auth";
+
+// các page ko check ref token
+const UNAUTHENTICATED_PATH = ["/login", "/logout", "/refresh-token"];
+export default function RefreshToken() {
+  const pathName = usePathname();
+
+  useEffect(() => {
+    if (UNAUTHENTICATED_PATH.includes(pathName)) return;
+    let interval: any = null;
+    const checkEndRefreshToken = async () => {
+      //không nên đưa 2 cái lấy acc và ref ra khỏi func này để mỗi lần check thì lấy cái mới nhất
+      const accessToken = getAccessTokenFromLocalstorage();
+      const refreshToken = getRefreshTokenFromLocalstorage();
+      //chưa đăng nhập ko cho chạy
+      if (!accessToken && !refreshToken) return;
+      //decode ra
+      const decodedAccessToken = jwt.decode(accessToken!) as {
+        exp: number;
+        iat: number; //thời gian khỏi tạo
+      };
+      const decodedRefreshToken = jwt.decode(refreshToken!) as {
+        exp: number;
+        iat: number;
+      };
+      //thời điểm hết hạn là tính theo s
+      // khi dùng cú pháp new date.gettime trả về ms => /1000
+      const now = Math.round(new Date().getTime() / 1000);
+      // refreshtoken hết hạn thì ko xử lí nữa
+      if (decodedRefreshToken.exp <= now) return;
+      // nếu acctoken hết hạn là 10s
+      // kiểm tra thời gian còn 1/3(3s) thì sẽ cho refresh toke lại
+      // thời gian còn lại sẽ tính = decodeAcc.exp - now
+      // thời gian hết hạn của accrT dựa trên = decodeAcc.exp - decodeacc.iat
+      if (
+        decodedAccessToken.exp - now <
+        (decodedAccessToken.exp - decodedAccessToken.iat) / 3
+      ) {
+        //call ref
+        try {
+          const res = await authApiRequest.refreshToken();
+          setAccessTokenToLocalstorage(res.payload.data.accessToken);
+          setRefreshTokenToLocalstorage(res.payload.data.refreshToken);
+        } catch (error) {
+          clearInterval(interval);
+        }
+      }
+    };
+    // phải gọi lần đầu vì interval sẽ gọi sau thời gian timeout
+    checkEndRefreshToken();
+    const TIMEOUT = 1000; // phải bé hơn thời gian hết hạn của acctoken
+    interval = setInterval(checkEndRefreshToken, TIMEOUT);
+
+    return () => clearInterval(interval);
+  }, [pathName]);
+  return null;
+}
+```
+
+nếu code thế này sẽ bị 1 bug là khi chuyển trang thì cái ref này sẽ được duplicate lên => khi đó sẽ bị lỗi do có 1 cái reftoken api gửi lên cái cũ
+sửa bên viết api để hạn chế (hoặc có thể xử lí như bên logout)
+
+```typescript
+refreshTokenRequest: null as Promise<{
+    status: number;
+    payload: RefreshTokenResType;
+  }> | null,
+
+
+  async refreshToken() {
+    if (this.refreshTokenRequest) return this.refreshTokenRequest;
+    this.refreshTokenRequest = http.post<RefreshTokenResType>(
+      "/api/auth/refresh-token",
+      null,
+      {
+        baseUrl: "",
+      }
+    );
+    const res = await this.refreshTokenRequest;
+    this.refreshTokenRequest=null
+    return res;
+  },
+```
