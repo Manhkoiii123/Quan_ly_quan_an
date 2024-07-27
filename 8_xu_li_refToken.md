@@ -192,7 +192,7 @@ const LogoutPage = () => {
 export default LogoutPage;
 ```
 
-### Còn trường hợp cả 2 cái đều còn vì 1 lí do nào đó trả về 401 (author)=> logout
+# Còn trường hợp cả 2 cái đều còn vì 1 lí do nào đó trả về 401 (author)=> logout
 
 khi call api lên server backend => trả về 401 => đọc http.ts ( đã xử lí )
 
@@ -291,3 +291,101 @@ nếu mà dùng try catch để cl cái error khi call cái sme kia thì sẽ b�
 
 hoặc là ko dùng try catch nữa là được
 => done
+
+# Phân tích cơ chế RefreshToken ớ nextJs
+
+các api yêu cầu
+
+1. server component => cần api /me ở server để lấy tt profile người dùng
+2. client component thì cầm call /me ở client để lấy tt của người dùng
+
+=> hết hạn token xảy ra được ở cả 2 client và server
+
+**các trường hợp hết hạn acctoken**
+
+- đang dùng thì hết hạn => ko cho xảy ra => khi **gần hết** => call ref luôn (react thì đợi hết rồi mới call reftoken => xong call tiếp cái api đang gọi dở) => bằng cách sử dụng setInterval
+- lâu ngày ko vào web thì bbh vào lại refToken hết hạn
+  khi vào lại web => middleware chạy ddaufat tiên => kiểm tra xem acc còn ko . nếu ko cần thì redirect về client compo call api reftoken => redirect ngược về trang đang sử dụng
+
+# tạo route handle cho refreshtoken
+
+khai báo api để call đã
+
+```typescript
+sRefreshToken: (body: RefreshTokenBodyType) => {
+    return http.post<RefreshTokenResType>("/auth/refresh-token", body);
+  },
+  refreshToken: () => {
+    return http.post<RefreshTokenResType>("/api/auth/refresh-token", null, {
+      baseUrl: "",
+    });
+  },
+
+```
+
+Viết route handle cho việc refreshToken
+
+```typescript
+import authApiRequest from "@/apiRequest/auth";
+import { LoginBodyType } from "@/schemaValidations/auth.schema";
+import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
+import { HttpError } from "@/lib/http";
+export async function POST(req: Request) {
+  const cookieStore = cookies();
+  const refreshToken = cookieStore.get("refreshToken")?.value;
+  if (!refreshToken) {
+    return Response.json(
+      {
+        message: "Không nhận được refreshToken",
+      },
+      {
+        status: 401,
+      }
+    );
+  }
+  try {
+    //call đến server backend
+    const { payload } = await authApiRequest.sRefreshToken({
+      refreshToken,
+    });
+    //decode acc và ref để lấy được giờ hết hạn
+    const decodedAccessToken = jwt.decode(payload.data.accessToken) as {
+      exp: number;
+    };
+    const decodedRefreshToken = jwt.decode(payload.data.refreshToken) as {
+      exp: number;
+    };
+    //set cookie
+    cookieStore.set("accessToken", payload.data.accessToken, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: true,
+      expires: decodedAccessToken.exp * 1000,
+    });
+    cookieStore.set("refreshToken", payload.data.refreshToken, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: true,
+      expires: decodedRefreshToken.exp * 1000,
+    });
+    //return về
+    return Response.json(payload);
+  } catch (error: any) {
+    if (error instanceof HttpError) {
+      return Response.json(error.payload, {
+        status: error.status,
+      });
+    } else {
+      return Response.json(
+        {
+          message: error.message || "Có lỗi xảy ra",
+        },
+        { status: 401 }
+      );
+    }
+  }
+}
+```
