@@ -3,6 +3,8 @@ import {
   LoginBodyType,
   LoginResType,
   LogoutBodyType,
+  RefreshTokenBodyType,
+  RefreshTokenResType,
 } from "@/schemaValidations/auth.schema";
 import { MessageResType } from "@/schemaValidations/common.schema";
 
@@ -27,5 +29,14 @@ const authApiRequest = {
   //client gọi đến route handle ko cần ody vì at rt tự có qua cookie r => body null
   logout: () =>
     http.post<MessageResType>("/api/auth/logout", null, { baseUrl: "" }),
+
+  sRefreshToken: (body: RefreshTokenBodyType) => {
+    return http.post<RefreshTokenResType>("/auth/refresh-token", body);
+  },
+  refreshToken: () => {
+    return http.post<RefreshTokenResType>("/api/auth/refresh-token", null, {
+      baseUrl: "",
+    });
+  },
 };
 export default authApiRequest;
