@@ -7,8 +7,8 @@ const unAuthPaths = ["/login"];
 // This function can be marked `async` if using `await` inside
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const accessToken = Boolean(request.cookies.get("accessToken")?.value);
-  const refreshToken = Boolean(request.cookies.get("accessToken")?.value);
+  const accessToken = request.cookies.get("accessToken")?.value;
+  const refreshToken = request.cookies.get("refreshToken")?.value;
   //chưa đăng nhập thì ko cho vào
   if (privatePaths.some((path) => pathname.startsWith(path) && !refreshToken)) {
     return NextResponse.redirect(new URL("/login", request.url));
@@ -23,11 +23,9 @@ export function middleware(request: NextRequest) {
       (path) => pathname.startsWith(path) && !accessToken && refreshToken
     )
   ) {
-    const url = new URL("/logout", request.url);
-    url.searchParams.set(
-      "refreshToken",
-      request.cookies.get("refreshToken")?.value ?? ""
-    );
+    const url = new URL("/refresh-token", request.url);
+    url.searchParams.set("refreshToken", refreshToken || "");
+    url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
   }
 }

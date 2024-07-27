@@ -522,3 +522,180 @@ refreshTokenRequest: null as Promise<{
     return res;
   },
 ```
+
+# Case lâu ngày ko vào web thì hết hạn
+
+khi vòa web middleware call đầu => check acc và ref và điều hướng về trang refresh token và ref tại đây
+và redirect về cái trang mà người dùng vừa enter vào trình duyệt
+
+1. tách cái này ra thành 1 hàm bên utils
+
+```typescript
+export const checkEndRefreshToken = async (params: {
+  onError?: () => void;
+  onSuccess?: () => void;
+}) => {
+  //không nên đưa 2 cái lấy acc và ref ra khỏi func này để mỗi lần check thì lấy cái mới nhất
+  const accessToken = getAccessTokenFromLocalstorage();
+  const refreshToken = getRefreshTokenFromLocalstorage();
+  //chưa đăng nhập ko cho chạy
+  if (!accessToken && !refreshToken) return;
+  //decode ra
+  const decodedAccessToken = jwt.decode(accessToken!) as {
+    exp: number;
+    iat: number; //thời gian khỏi tạo
+  };
+  const decodedRefreshToken = jwt.decode(refreshToken!) as {
+    exp: number;
+    iat: number;
+  };
+  //thời điểm hết hạn là tính theo s
+  // khi dùng cú pháp new date.gettime trả về ms => /1000
+  const now = Math.round(new Date().getTime() / 1000);
+  // refreshtoken hết hạn thì ko xử lí nữa
+  if (decodedRefreshToken.exp <= now) return;
+  // nếu acctoken hết hạn là 10s
+  // kiểm tra thời gian còn 1/3(3s) thì sẽ cho refresh toke lại
+  // thời gian còn lại sẽ tính = decodeAcc.exp - now
+  // thời gian hết hạn của accrT dựa trên = decodeAcc.exp - decodeacc.iat
+  if (
+    decodedAccessToken.exp - now <
+    (decodedAccessToken.exp - decodedAccessToken.iat) / 3
+  ) {
+    //call ref
+    try {
+      const res = await authApiRequest.refreshToken();
+      setAccessTokenToLocalstorage(res.payload.data.accessToken);
+      setRefreshTokenToLocalstorage(res.payload.data.refreshToken);
+      params?.onSuccess && params?.onSuccess();
+    } catch (error) {
+      params?.onError && params?.onError();
+    }
+  }
+};
+```
+
+2. sử dụng hàm này trong component refreshtoken
+
+```typescript
+"use client";
+import {
+  checkEndRefreshToken,
+  getAccessTokenFromLocalstorage,
+  getRefreshTokenFromLocalstorage,
+  setAccessTokenToLocalstorage,
+  setRefreshTokenToLocalstorage,
+} from "@/lib/utils";
+import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import jwt from "jsonwebtoken";
+import authApiRequest from "@/apiRequest/auth";
+
+// các page ko check ref token
+const UNAUTHENTICATED_PATH = ["/login", "/logout", "/refresh-token"];
+export default function RefreshToken() {
+  const pathName = usePathname();
+
+  useEffect(() => {
+    if (UNAUTHENTICATED_PATH.includes(pathName)) return;
+    let interval: any = null;
+
+    // phải gọi lần đầu vì interval sẽ gọi sau thời gian timeout
+    checkEndRefreshToken({
+      onError: () => {
+        clearInterval(interval);
+      },
+    });
+    const TIMEOUT = 1000; // phải bé hơn thời gian hết hạn của acctoken
+    interval = setInterval(checkEndRefreshToken, TIMEOUT);
+    return () => clearInterval(interval);
+  }, [pathName]);
+  return null;
+}
+```
+
+3. sửa lại middleware để redirect
+
+```ts
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+const privatePaths = ["/manage"];
+const unAuthPaths = ["/login"];
+
+// This function can be marked `async` if using `await` inside
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const accessToken = Boolean(request.cookies.get("accessToken")?.value);
+  const refreshToken = Boolean(request.cookies.get("accessToken")?.value);
+  //chưa đăng nhập thì ko cho vào
+  if (privatePaths.some((path) => pathname.startsWith(path) && !refreshToken)) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+  //đăng nhập r ko cho vào login nữa
+  if (unAuthPaths.some((path) => pathname.startsWith(path) && refreshToken)) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+  //hết hạn token(đăng nhập rồi)
+  if (
+    privatePaths.some(
+      (path) => pathname.startsWith(path) && !accessToken && refreshToken
+    )
+  ) {
+    // lưu lại cái redirect
+    const url = new URL("/refresh-token", request.url);
+    url.searchParams.set(
+      "refreshToken",
+      request.cookies.get("refreshToken")?.value ?? ""
+    );
+    url.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(url);
+  }
+}
+
+// See "Matching Paths" below to learn more
+export const config = {
+  matcher: ["/manage/:path*", "/login"],
+};
+```
+
+4. viết page refresh token
+
+```ts
+"use client";
+import {
+  checkEndRefreshToken,
+  getRefreshTokenFromLocalstorage,
+} from "@/lib/utils";
+import { useRouter, useSearchParams } from "next/navigation";
+import React, { useEffect } from "react";
+
+const RefreshTokenPage = () => {
+  const router = useRouter();
+  const searchParam = useSearchParams();
+
+  const refreshTokenFromUrl = searchParam.get("refreshToken");
+  const redirectPathNameFromUrl = searchParam.get("redirect");
+
+  useEffect(() => {
+    if (
+      refreshTokenFromUrl &&
+      refreshTokenFromUrl === getRefreshTokenFromLocalstorage()
+    ) {
+      checkEndRefreshToken({
+        onSuccess: () => {
+          router.push(redirectPathNameFromUrl || "/");
+        },
+      });
+    }
+  }, [redirectPathNameFromUrl, refreshTokenFromUrl, router]);
+  return <div></div>;
+};
+
+export default RefreshTokenPage;
+```
+
+=> luồng chạy khi vào web tắt web đi ( ấn dấu x tại tab ) => 1 thời gian sau acc hết hạn =>
+vào lại web => chyaj middleware => check thấy đang ở route private và cái !acc và re đúng 2 điều kiện này chạy đế cái /refresh-token
+sau đó vào cái page /refresh-token để call lại api refresh để lấy lại acctoken
+sau đó đá đếm cái redirect luôn nếu láy lại thành công = router.push(redirectPathNameFromUrl || "/");
