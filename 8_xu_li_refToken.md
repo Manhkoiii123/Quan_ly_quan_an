@@ -753,3 +753,193 @@ export default function RefreshToken() {
   return null;
 }
 ```
+
+# Fix lỗi refresh token hết hạn nhưng không redirect về login Giải thích về Router Cache Next.js
+
+có 1 cái bug là điều hướng là /login nhưng lại đá về trang chủ khi hết hạn refToken
+
+- không nên làm tròn cái now bên cái hàm checkEndRef
+- khi set cookie thường bị lệch từ 0 -1000ms
+  => const now = new Date().getTime() / 1000 - 1; (fix 2 case trên)
+-
+
+## Giải thích về Router Cache Next.js
+
+Next.js có một tính năng gọi là Router Cache, giúp tăng tốc độ tải trang bằng cách lưu cache
+khoảng tầm 30s => trong cái khoảng cache còn thì ko chạy vào middleware
+
+# Xử lý trường hợp lâu ngày vào web thì refresh token hết hạn
+
+chạy middleware rơi vào case
+
+```ts
+//chưa đăng nhập thì ko cho vào
+if (privatePaths.some((path) => pathname.startsWith(path) && !refreshToken)) {
+  return NextResponse.redirect(new URL("/login", request.url));
+}
+```
+
+bug ui ch xóa ở LS đi => ui menu vẫn ăn
+
+chỉ bị khi patse url chứ nếu mà là cái gõ từng chữ thì next có cái prefecthing => ăn ngay cái / luôn chứ ko đợi cái url xong r ấn enter
+
+middleware
+
+```ts
+//chưa đăng nhập thì ko cho vào
+if (privatePaths.some((path) => pathname.startsWith(path) && !refreshToken)) {
+  const url = new URL("/login", request.url);
+  url.searchParams.set("clearToken", "true");
+  return NextResponse.redirect(url);
+}
+```
+
+và sửa bên login form
+
+```ts
+const searchParams = useSearchParams();
+const clearToken = searchParams.get("clearToken");
+
+useEffect(() => {
+  if (clearToken) {
+    removeLocalStorage();
+  }
+}, [clearToken]);
+```
+
+có 1 cái case
+bên navitem
+
+```ts
+useEffect(() => {
+  setIsAuth(Boolean(getAccessTokenFromLocalstorage()));
+}, []);
+```
+
+thì ko biết cái nào chạy trước so với cái useEFf trên => dùng context để định dạng bên cái navitem chứ ko dùng 2 cái useef này nữa
+app-provider.tsx
+
+```ts
+"use client";
+
+import RefreshToken from "@/components/refresh-token";
+import {
+  getAccessTokenFromLocalstorage,
+  removeLocalStorage,
+} from "@/lib/utils";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import React, { createContext, useContext, useEffect, useState } from "react";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+    },
+  },
+});
+const AppContext = createContext({
+  isAuth: false,
+  setIsAuth: (isAuth: boolean) => {},
+});
+export const useAppContext = () => {
+  return useContext(AppContext);
+};
+const AppProvider = ({ children }: { children: React.ReactNode }) => {
+  const [isAuth, setIsAuthState] = useState(false);
+  useEffect(() => {
+    const accessToken = getAccessTokenFromLocalstorage();
+    if (accessToken) {
+      setIsAuthState(true);
+    }
+  }, []);
+  const setIsAuth = (isAuth: boolean) => {
+    if (isAuth) {
+      setIsAuthState(true);
+    } else {
+      setIsAuthState(false);
+      removeLocalStorage();
+    }
+  };
+  return (
+    <AppContext.Provider value={{ isAuth: isAuth, setIsAuth: setIsAuth }}>
+      <QueryClientProvider client={queryClient}>
+        {children}
+        <RefreshToken />
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
+    </AppContext.Provider>
+  );
+};
+
+export default AppProvider;
+```
+
+login-form.tsx
+
+```ts
+const { setIsAuth } = useAppContext();
+useEffect(() => {
+  if (clearToken) {
+    setIsAuth(false);
+  }
+}, [setIsAuth, clearToken]);
+```
+
+navitem
+
+```ts
+"use client";
+
+import { useAppContext } from "@/components/app-provider";
+import { getAccessTokenFromLocalstorage } from "@/lib/utils";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+const menuItems = [
+  {
+    title: "Món ăn",
+    href: "/menu",
+    authRequired: true,
+  },
+  {
+    title: "Đơn hàng",
+    href: "/orders",
+    authRequired: true,
+  },
+  {
+    title: "Đăng nhập",
+    href: "/login",
+    authRequired: false,
+  },
+  {
+    title: "Quản lý",
+    href: "/manage/dashboard",
+    authRequired: true,
+  },
+];
+
+export default function NavItems({ className }: { className?: string }) {
+  const { isAuth } = useAppContext();
+
+  return menuItems.map((item) => {
+    if (
+      (item.authRequired === false && isAuth) ||
+      (item.authRequired === true && !isAuth)
+    )
+      return null;
+    return (
+      <Link href={item.href} key={item.href} className={className}>
+        {item.title}
+      </Link>
+    );
+  });
+}
+```
