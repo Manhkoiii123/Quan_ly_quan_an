@@ -699,3 +699,57 @@ export default RefreshTokenPage;
 vào lại web => chyaj middleware => check thấy đang ở route private và cái !acc và re đúng 2 điều kiện này chạy đế cái /refresh-token
 sau đó vào cái page /refresh-token để call lại api refresh để lấy lại acctoken
 sau đó đá đếm cái redirect luôn nếu láy lại thành công = router.push(redirectPathNameFromUrl || "/");
+
+# Xử lý trường hợp đang dùng thì refresh token hết hạn
+
+thấy bên cái reftoken chạy 1s 1 lần => chạy vòa cái checkEndRef => chạy vào case decodeRef.exp <=now => cho logout luôn(case hết hạn cần xử lí) => xóa LS còn cookie tự xóa
+
+bên hàm checkEndRef
+
+```ts
+if (decodedRefreshToken.exp <= now) {
+  removeLocalStorage();
+  params?.onError && params?.onError();
+  return;
+}
+```
+
+xử lí đá đi ở bên reftoken
+
+```ts
+"use client";
+import { checkEndRefreshToken } from "@/lib/utils";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+
+// các page ko check ref token
+const UNAUTHENTICATED_PATH = ["/login", "/logout", "/refresh-token"];
+export default function RefreshToken() {
+  const pathName = usePathname();
+  const router = useRouter();
+  useEffect(() => {
+    if (UNAUTHENTICATED_PATH.includes(pathName)) return;
+    let interval: any = null;
+
+    // phải gọi lần đầu vì interval sẽ gọi sau thời gian timeout
+    checkEndRefreshToken({
+      onError: () => {
+        clearInterval(interval);
+      },
+    });
+    const TIMEOUT = 1000; // phải bé hơn thời gian hết hạn của acctoken
+    interval = setInterval(
+      () =>
+        checkEndRefreshToken({
+          onError: () => {
+            clearInterval(interval);
+            router.push("/login");
+          },
+        }),
+      TIMEOUT
+    );
+    return () => clearInterval(interval);
+  }, [pathName, router]);
+  return null;
+}
+```

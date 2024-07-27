@@ -1,21 +1,13 @@
 "use client";
-import {
-  checkEndRefreshToken,
-  getAccessTokenFromLocalstorage,
-  getRefreshTokenFromLocalstorage,
-  setAccessTokenToLocalstorage,
-  setRefreshTokenToLocalstorage,
-} from "@/lib/utils";
-import { usePathname } from "next/navigation";
+import { checkEndRefreshToken } from "@/lib/utils";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import jwt from "jsonwebtoken";
-import authApiRequest from "@/apiRequest/auth";
 
 // các page ko check ref token
 const UNAUTHENTICATED_PATH = ["/login", "/logout", "/refresh-token"];
 export default function RefreshToken() {
   const pathName = usePathname();
-
+  const router = useRouter();
   useEffect(() => {
     if (UNAUTHENTICATED_PATH.includes(pathName)) return;
     let interval: any = null;
@@ -27,8 +19,17 @@ export default function RefreshToken() {
       },
     });
     const TIMEOUT = 1000; // phải bé hơn thời gian hết hạn của acctoken
-    interval = setInterval(checkEndRefreshToken, TIMEOUT);
+    interval = setInterval(
+      () =>
+        checkEndRefreshToken({
+          onError: () => {
+            clearInterval(interval);
+            router.push("/login");
+          },
+        }),
+      TIMEOUT
+    );
     return () => clearInterval(interval);
-  }, [pathName]);
+  }, [pathName, router]);
   return null;
 }
