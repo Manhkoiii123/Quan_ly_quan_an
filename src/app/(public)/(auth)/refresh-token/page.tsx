@@ -23,6 +23,8 @@ const RefreshTokenPage = () => {
           router.push(redirectPathNameFromUrl || "/");
         },
       });
+    } else {
+      router.push("/");
     }
   }, [redirectPathNameFromUrl, refreshTokenFromUrl, router]);
   return <div></div>;

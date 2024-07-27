@@ -18,23 +18,23 @@ const LogoutPage = () => {
 
   useEffect(() => {
     if (
-      ref.current ||
+      !ref.current ||
       (refreshTokenFromUrl &&
-        refreshTokenFromUrl !== getRefreshTokenFromLocalstorage()) ||
+        refreshTokenFromUrl === getRefreshTokenFromLocalstorage()) ||
       (accessTokenFromUrl &&
-        accessTokenFromUrl !== getAccessTokenFromLocalstorage())
+        accessTokenFromUrl === getAccessTokenFromLocalstorage())
     ) {
-      return;
+      ref.current = mutateAsync;
+      mutateAsync().then((res) => {
+        setTimeout(() => {
+          ref.current = null;
+        }, 1000);
+
+        router.push("/login");
+      });
+    } else {
+      router.push("/");
     }
-
-    ref.current = mutateAsync;
-    mutateAsync().then((res) => {
-      setTimeout(() => {
-        ref.current = null;
-      }, 1000);
-
-      router.push("/login");
-    });
   }, [mutateAsync, refreshTokenFromUrl, router, accessTokenFromUrl]);
   return <div></div>;
 };

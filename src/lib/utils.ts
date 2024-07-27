@@ -77,7 +77,7 @@ export const checkEndRefreshToken = async (params: {
   };
   //thời điểm hết hạn là tính theo s
   // khi dùng cú pháp new date.gettime trả về ms => /1000
-  const now = Math.round(new Date().getTime() / 1000);
+  const now = new Date().getTime() / 1000 - 1;
   // refreshtoken hết hạn thì cho logout
   if (decodedRefreshToken.exp <= now) {
     removeLocalStorage();
