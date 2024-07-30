@@ -17,10 +17,14 @@ import {
 } from "@/schemaValidations/account.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusCircle, Upload } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Form, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAddAccountMutation } from "@/queries/useAccount";
+import { toast } from "@/components/ui/use-toast";
+import { handleErrorApi } from "@/lib/utils";
+import { useUploadMediaMutation } from "@/queries/useMedia";
 
 export default function AddEmployee() {
   const [file, setFile] = useState<File | null>(null);
@@ -36,8 +40,45 @@ export default function AddEmployee() {
       confirmPassword: "",
     },
   });
+  const addCountMutation = useAddAccountMutation();
+
+  const reset = () => {
+    form.reset();
+    setFile(null);
+  };
+  const uploadImageMutation = useUploadMediaMutation();
+  async function onSubmit(values: CreateEmployeeAccountBodyType) {
+    if (addCountMutation.isPending) return;
+    try {
+      let body = values;
+      if (file) {
+        const formData = new FormData();
+        formData.append("file", file as Blob);
+        const uploadImageResult = await uploadImageMutation.mutateAsync(
+          formData
+        );
+        const imageUrl = uploadImageResult.payload.data;
+        body = {
+          ...values,
+          avatar: imageUrl,
+        };
+      }
+      const result = await addCountMutation.mutateAsync(body);
+      toast({
+        description: result.payload.message,
+      });
+      reset();
+      setOpen(false);
+    } catch (error: any) {
+      handleErrorApi({
+        error,
+        setError: form.setError,
+      });
+    }
+  }
   const avatar = form.watch("avatar");
   const name = form.watch("name");
+
   const previewAvatarFromFile = useMemo(() => {
     if (file) {
       return URL.createObjectURL(file);
@@ -64,6 +105,8 @@ export default function AddEmployee() {
         </DialogHeader>
         <Form {...form}>
           <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            onReset={reset}
             noValidate
             className="grid auto-rows-max items-start gap-4 md:gap-8"
             id="add-employee-form"
