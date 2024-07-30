@@ -22,7 +22,7 @@ const accountApiRequest = {
     return http.put<AccountResType>(`${prefixUrl}/change-password`, body);
   },
   list: () => {
-    return http.get<AccountListResType[]>(`${prefixUrl}`);
+    return http.get<AccountListResType>(`${prefixUrl}`);
   },
   addEmployees: (body: CreateEmployeeAccountBodyType) => {
     return http.post<AccountResType>(prefixUrl, body);

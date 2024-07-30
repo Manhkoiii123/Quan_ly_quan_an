@@ -53,9 +53,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useSearchParams } from "next/navigation";
 import AutoPagination from "@/components/auto-pagination";
+import {
+  useDeleteAccountMutation,
+  useGetAccountList,
+} from "@/queries/useAccount";
+import { toast } from "@/components/ui/use-toast";
+import { handleErrorApi } from "@/lib/utils";
 
 type AccountItem = AccountListResType["data"][0];
 
+//dùng context để truyền vào cái columns để render ra cái actions
 const AccountTableContext = createContext<{
   setEmployeeIdEdit: (value: number) => void;
   employeeIdEdit: number | undefined;
@@ -149,6 +156,22 @@ function AlertDialogDeleteAccount({
   employeeDelete: AccountItem | null;
   setEmployeeDelete: (value: AccountItem | null) => void;
 }) {
+  const { mutateAsync } = useDeleteAccountMutation();
+  const deleteAccount = async () => {
+    if (employeeDelete) {
+      try {
+        const res = await mutateAsync(employeeDelete.id);
+        setEmployeeDelete(null);
+        toast({
+          description: res.payload.message,
+        });
+      } catch (error) {
+        handleErrorApi({
+          error,
+        });
+      }
+    }
+  };
   return (
     <AlertDialog
       open={Boolean(employeeDelete)}
@@ -171,14 +194,16 @@ function AlertDialogDeleteAccount({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction>Continue</AlertDialogAction>
+          <AlertDialogAction onClick={deleteAccount}>
+            Continue
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
 }
 // Số lượng item trên 1 trang
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 export default function AccountTable() {
   const searchParam = useSearchParams();
   const page = searchParam.get("page") ? Number(searchParam.get("page")) : 1;
@@ -188,7 +213,6 @@ export default function AccountTable() {
   const [employeeDelete, setEmployeeDelete] = useState<AccountItem | null>(
     null
   );
-  const data: any[] = [];
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -197,7 +221,8 @@ export default function AccountTable() {
     pageIndex, // Gía trị mặc định ban đầu, không có ý nghĩa khi data được fetch bất đồng bộ
     pageSize: PAGE_SIZE, //default page size
   });
-
+  const { data: accountList } = useGetAccountList();
+  const data = accountList?.payload.data ?? [];
   const table = useReactTable({
     data,
     columns,
