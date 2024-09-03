@@ -8,7 +8,8 @@ import {
 
 const dishApiRequest = {
   // Note: Next.js 15 thì mặc định fetch sẽ là { cache: 'no-store' } (dynamic rendering page)
-  // Hiện tại next.js 14 mặc định fetch sẽ là { cache: 'force-cache' } nghĩa là cache (static rendering page)
+  // Hiện tại next.js 14 mặc định fetch sẽ là { cache: 'force-cache' } nghĩa là cache (static rendering page) => mặc định nó là cache
+  // khi static => build lên 
   list: () =>
     http.get<DishListResType>("dishes", { next: { tags: ["dishes"] } }),
   add: (body: CreateDishBodyType) => http.post<DishResType>("dishes", body),
@@ -19,3 +20,4 @@ const dishApiRequest = {
 };
 
 export default dishApiRequest;
+
