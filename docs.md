@@ -108,3 +108,7 @@ sử dụng lúc mà adddissh và edit dish
 ```ts
 await revalidateApiRequest("dishes");
 ```
+
+# 13.70 Khai báo Route Handler cho auth guest (chuowng 13 bài 70)
+
+tương tự admin (code)
