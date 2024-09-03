@@ -17,7 +17,7 @@ import { handleErrorApi } from "@/lib/utils";
 import { useGuestLoginMutation } from "@/queries/useGuest";
 
 export default function GuestLoginForm() {
-  // const { setRole } = useAppContext();
+  const { setRole } = useAppContext();
   const searchParams = useSearchParams();
   const params = useParams();
   const tableNumber = Number(params.number);
@@ -43,9 +43,8 @@ export default function GuestLoginForm() {
     if (loginMutation.isPending) return;
     try {
       const result = await loginMutation.mutateAsync(values);
-      console.log("🚀 ~ onSubmit ~ result:", result);
-      // setRole(result.payload.data.guest.role);
-      // router.push("/guest/menu");
+      setRole(result.payload.data.guest.role);
+      router.push("/guest/menu");
     } catch (error) {
       handleErrorApi({
         error,
