@@ -12,7 +12,7 @@ function Logout() {
   const { mutateAsync } = useLogoutMutation();
   const ref = useRef<any>(null);
   const searchParam = useSearchParams();
-  const { setIsAuth } = useAppContext();
+  const { setRole } = useAppContext();
 
   const refreshTokenFromUrl = searchParam.get("refreshToken");
   const accessTokenFromUrl = searchParam.get("accessToken");
@@ -30,13 +30,13 @@ function Logout() {
         setTimeout(() => {
           ref.current = null;
         }, 1000);
-        setIsAuth(false);
+        setRole();
         router.push("/login");
       });
     } else {
       router.push("/");
     }
-  }, [mutateAsync, refreshTokenFromUrl, router, accessTokenFromUrl]);
+  }, [mutateAsync, refreshTokenFromUrl, router, accessTokenFromUrl, setRole]);
   return <div></div>;
 }
 const LogoutPage = () => {

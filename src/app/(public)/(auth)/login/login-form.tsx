@@ -24,12 +24,12 @@ export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const clearToken = searchParams.get("clearToken");
-  const { setIsAuth } = useAppContext();
+  const { setRole } = useAppContext();
   useEffect(() => {
     if (clearToken) {
-      setIsAuth(false);
+      setRole();
     }
-  }, [setIsAuth, clearToken]);
+  }, [setRole, clearToken]);
   const loginMutation = useLoginMutation();
   const form = useForm<LoginBodyType>({
     resolver: zodResolver(LoginBody),
@@ -45,7 +45,7 @@ export default function LoginForm() {
       toast({
         description: res.payload.message,
       });
-      setIsAuth(true);
+      setRole(res.payload.data.account.role);
       router.push("/manage/dashboard");
     } catch (error: any) {
       handleErrorApi({
