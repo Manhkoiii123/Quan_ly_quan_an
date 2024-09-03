@@ -110,7 +110,7 @@ export const columns: ColumnDef<DishItem>[] = [
         dangerouslySetInnerHTML={{
           __html: DOMPurify.sanitize(row.getValue("description")),
         }}
-        className="whitespace-pre-line"
+        className="whitespace-pre-line max-w-[300px] overflow-hidden truncate"
       />
     ),
   },

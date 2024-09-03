@@ -51,8 +51,10 @@ export default async function Home() {
                 />
               </div>
               <div className="space-y-1">
-                <h3 className="text-xl font-semibold">{dish.name}</h3>
-                <p className="">{dish.description}</p>
+                <div className="text-xl font-semibold ">{dish.name}</div>
+                <div className="block w-[300px] truncate overflow-hidden">
+                  {dish.description}
+                </div>
                 <p className="font-semibold">{formatCurrency(dish.price)}</p>
               </div>
             </div>

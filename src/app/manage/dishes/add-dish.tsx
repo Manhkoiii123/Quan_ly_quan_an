@@ -86,7 +86,7 @@ export default function AddDish() {
         };
       }
       const result = await addDishMutation.mutateAsync(body);
-      // await revalidateApiRequest("dishes");
+      await revalidateApiRequest("dishes");
       toast({
         description: result.payload.message,
       });
