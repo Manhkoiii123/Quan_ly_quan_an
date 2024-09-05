@@ -114,3 +114,7 @@ await revalidateApiRequest("dishes");
 tương tự admin (code)
 
 # 13.71 Xử lý đăng nhập cho khách
+
+# Bài 72 Xử lý phân quyền giữa khách và quản lý
+
+nhắc đến phân quyền => `middleware`

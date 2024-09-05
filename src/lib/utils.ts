@@ -5,9 +5,10 @@ import { UseFormSetError } from "react-hook-form";
 import { twMerge } from "tailwind-merge";
 import jwt from "jsonwebtoken";
 import authApiRequest from "@/apiRequest/auth";
-import { DishStatus, OrderStatus, TableStatus } from "@/constants/type";
+import { DishStatus, OrderStatus, Role, TableStatus } from "@/constants/type";
 import envConfig from "@/config";
 import { TokenPayload } from "@/types/jwt.types";
+import guestApiRequest from "@/apiRequest/guest";
 
 //mở cái loginform xem cái catch => cần những cái gì => errors,1 cái setError,duration(thời gian nó toast lên)
 export const handleErrorApi = ({
@@ -70,14 +71,8 @@ export const checkEndRefreshToken = async (params: {
   //chưa đăng nhập ko cho chạy
   if (!accessToken && !refreshToken) return;
   //decode ra
-  const decodedAccessToken = jwt.decode(accessToken!) as {
-    exp: number;
-    iat: number; //thời gian khỏi tạo
-  };
-  const decodedRefreshToken = jwt.decode(refreshToken!) as {
-    exp: number;
-    iat: number;
-  };
+  const decodedAccessToken = decodeToken(accessToken!);
+  const decodedRefreshToken = decodeToken(refreshToken!);
   //thời điểm hết hạn là tính theo s
   // khi dùng cú pháp new date.gettime trả về ms => /1000
   const now = new Date().getTime() / 1000 - 1;
@@ -97,7 +92,12 @@ export const checkEndRefreshToken = async (params: {
   ) {
     //call ref
     try {
-      const res = await authApiRequest.refreshToken();
+      //phải check xem của guest hay của owner
+      const role = decodedRefreshToken.role;
+      const res =
+        role === Role.Guest
+          ? await guestApiRequest.refreshToken()
+          : await authApiRequest.refreshToken();
       setAccessTokenToLocalstorage(res.payload.data.accessToken);
       setRefreshTokenToLocalstorage(res.payload.data.refreshToken);
       params?.onSuccess && params?.onSuccess();
